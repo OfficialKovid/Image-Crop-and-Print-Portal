@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Crop and Print Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            background-color: #1a202c;
+            color: #a0aec0;
+        }
+        #crop-area {
+            width: 100%;
+            max-width: 400px;
+            height: 400px;
+            overflow: hidden;
+            position: relative;
+            border: 2px dashed #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        #crop-area:hover {
+            border-color: #4CAF50;
+        }
+        #image-preview {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #image-upload {
+            display: none;
+        }
+        .form-label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 0.375rem;
+            transition: border-color 0.3s;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .btn-blue {
+            background-color: #000000; /* Light mode: Black */
+            color: white;
+        }
+        .btn-blue:hover {
+            background-color: #333333; /* Light mode: Darker Black */
+        }
+        .btn-green {
+            background-color: #000000; /* Light mode: Black */
+            color: white;
+        }
+        .btn-green:hover {
+            background-color: #333333; /* Light mode: Darker Black */
+        }
+        .dark-mode .btn-blue {
+            background-color: #6c757d; /* Dark mode: Gray */
+        }
+        .dark-mode .btn-blue:hover {
+            background-color: #5a6268; /* Dark mode: Darker Gray */
+        }
+        .dark-mode .btn-green {
+            background-color: #17a2b8; /* Dark mode: Teal */
+        }
+        .dark-mode .btn-green:hover {
+            background-color: #138496; /* Dark mode: Darker Teal */
+        }
+        .dark-mode .form-input, .dark-mode .form-select, .dark-mode .form-textarea {
+            background-color: #2d3748;
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+        .dark-mode .form-input:focus, .dark-mode .form-select:focus, .dark-mode .form-textarea:focus {
+            border-color: #38a169;
+        }
+        .toggle-container {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        .toggle {
+            cursor: pointer;
+            width: 40px;
+            height: 20px;
+            background-color: #cbd5e0;
+            border-radius: 10px;
+            position: relative;
+            transition: background-color 0.3s;
+        }
+        .toggle::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background-color: white;
+            border-radius: 50%;
+            top: 1px;
+            left: 1px;
+            transition: transform 0.3s;
+        }
+        .dark-mode .toggle {
+            background-color: #4a5568;
+        }
+        .dark-mode .toggle::before {
+            transform: translateX(20px);
+        }
+        .dark-mode .bg-white {
+            background-color: #2d3748;
+        }
+        .dark-mode .text-gray-200 {
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="toggle-container">
+        <div id="dark-mode-toggle" class="toggle"></div>
+    </div>
+    <div class="container mx-auto py-10 px-4">
+        <h1 class="text-3xl font-bold text-center mb-8"><a href="index.html" class="text-blue-500 hover:text-blue-700">Image Crop and Print Portal</a></h1>
+        <div class="bg-white p-6 rounded-lg shadow-md dark:bg-gray-800 dark:text-gray-200">
+            <input id="image-upload" type="file" accept="image/*">
+            <div class="flex flex-col md:flex-row">
+                <div id="crop-area" class="flex-1">
+                    <img id="image-preview" src="img/image.png" alt="Upload an image">
+                </div>
+                <div class="flex-1 pl-0 md:pl-6 mt-6 md:mt-0">
+                    <div class="mt-4">
+                        <label class="form-label">Crop Size:</label>
+                        <select id="crop-size" class="form-select">
+                            <option value="passport">Passport Size</option>
+                            <option value="postcard">Postcard Size</option>
+                            <option value="custom">Custom</option>
+                            <option value="free">Free Size</option>
+                        </select>
+                    </div>
+
+                    <div id="custom-size-inputs" class="mt-4 hidden">
+                        <label class="form-label">Custom Width (px):</label>
+                        <input id="custom-width" type="number" min="1" class="form-input w-24">
+                        <label class="form-label mt-2">Custom Height (px):</label>
+                        <input id="custom-height" type="number" min="1" class="form-input w-24">
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="form-label">Number of Images per Page:</label>
+                        <input id="images-per-page" type="number" min="1" max="50" value="1" class="form-input">
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="form-label">Border Thickness:</label>
+                        <input id="border-thickness" type="number" min="0" max="10" value="0" class="form-input">
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="form-label">Font Size:</label>
+                        <input id="font-size" type="number" min="10" max="30" value="16" class="form-input">
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="form-label">Lines of Text:</label>
+                        <select id="text-lines" class="form-select">
+                            <option value="1">1 Line</option>
+                            <option value="2">2 Lines</option>
+                        </select>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="form-label">Text Below Image:</label>
+                        <textarea id="bottom-text" rows="2" placeholder="Enter text here..." class="form-textarea"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 text-center">
+                <button id="apply-crop" class="btn btn-blue">Apply Crop</button>
+                <button id="print-images" class="btn btn-green">Print Images</button>
+            </div>
+
+            <canvas id="output-canvas" class="hidden"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+    <script>
+        const imageUpload = document.getElementById('image-upload');
+        const cropArea = document.getElementById('crop-area');
+        const imagePreview = document.getElementById('image-preview');
+        const cropSize = document.getElementById('crop-size');
+        const customSizeInputs = document.getElementById('custom-size-inputs');
+        const customWidth = document.getElementById('custom-width');
+        const customHeight = document.getElementById('custom-height');
+        const imagesPerPage = document.getElementById('images-per-page');
+        const borderThickness = document.getElementById('border-thickness');
+        const fontSize = document.getElementById('font-size');
+        const textLines = document.getElementById('text-lines');
+        const bottomText = document.getElementById('bottom-text');
+        const applyCrop = document.getElementById('apply-crop');
+        const printImages = document.getElementById('print-images');
+        const outputCanvas = document.getElementById('output-canvas');
+
+        let cropper = null;
+        let isCropped = false;
+
+        // Handle image upload
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    imagePreview.src = reader.result;
+                    if (cropper) cropper.destroy();
+                    cropper = new Cropper(imagePreview, {
+                        aspectRatio: getAspectRatio(),
+                    });
+                    // Disable further image uploads
+                    imageUpload.disabled = true;
+                    cropArea.removeEventListener('click', handleClickUpload);
+                    cropArea.removeEventListener('drop', handleDropUpload);
+                    cropArea.removeEventListener('dragover', handleDragOver);
+                    cropArea.removeEventListener('dragleave', handleDragLeave);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Handle drag and drop
+        function handleDragOver(event) {
+            event.preventDefault();
+            cropArea.style.borderColor = '#4CAF50';
+        }
+
+        function handleDragLeave() {
+            cropArea.style.borderColor = '#ccc';
+        }
+
+        function handleDropUpload(event) {
+            event.preventDefault();
+            cropArea.style.borderColor = '#ccc';
+            const file = event.dataTransfer.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    imagePreview.src = reader.result;
+                    if (cropper) cropper.destroy();
+                    cropper = new Cropper(imagePreview, {
+                        aspectRatio: getAspectRatio(),
+                    });
+                    // Disable further image uploads
+                    imageUpload.disabled = true;
+                    cropArea.removeEventListener('click', handleClickUpload);
+                    cropArea.removeEventListener('drop', handleDropUpload);
+                    cropArea.removeEventListener('dragover', handleDragOver);
+                    cropArea.removeEventListener('dragleave', handleDragLeave);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function handleClickUpload() {
+            imageUpload.click();
+        }
+
+        cropArea.addEventListener('dragover', handleDragOver);
+        cropArea.addEventListener('dragleave', handleDragLeave);
+        cropArea.addEventListener('drop', handleDropUpload);
+        cropArea.addEventListener('click', handleClickUpload);
+
+        // Get aspect ratio based on crop size
+        function getAspectRatio() {
+            const size = cropSize.value;
+            if (size === 'passport') {
+                return 413 / 531;
+            } else if (size === 'postcard') {
+                return 400 / 600;
+            } else if (size === 'custom') {
+                const width = parseInt(customWidth.value) || 0;
+                const height = parseInt(customHeight.value) || 0;
+                return width > 0 && height > 0 ? width / height : NaN;
+            } else {
+                return NaN;
+            }
+        }
+
+        // Update cropper aspect ratio or size when crop size changes
+        cropSize.addEventListener('change', () => {
+            if (cropSize.value === 'custom') {
+                customSizeInputs.classList.remove('hidden');
+            } else {
+                customSizeInputs.classList.add('hidden');
+            }
+
+            if (cropper) {
+                cropper.setAspectRatio(getAspectRatio());
+            }
+        });
+
+        // Update cropper when custom size inputs change
+        customWidth.addEventListener('input', () => {
+            if (cropSize.value === 'custom' && cropper) {
+                cropper.setAspectRatio(getAspectRatio());
+            }
+        });
+
+        customHeight.addEventListener('input', () => {
+            if (cropSize.value === 'custom' && cropper) {
+                cropper.setAspectRatio(getAspectRatio());
+            }
+        });
+
+        // Apply crop and prepare image for output
+        applyCrop.addEventListener('click', () => {
+            if (!cropper) {
+                alert('Please upload and select an image first!');
+                return;
+            }
+
+            const canvas = cropper.getCroppedCanvas({
+                width: 413,
+                height: 531,
+            });
+            const context = canvas.getContext('2d');
+
+            // Add text at the bottom
+            if (bottomText.value) {
+                const textHeight = canvas.height * 0.15;
+                const textFontSize = parseInt(fontSize.value) || 16;
+                const lines = parseInt(textLines.value) || 1;
+                const textBackgroundY = canvas.height - textHeight;
+
+                context.fillStyle = 'white';
+                context.fillRect(0, textBackgroundY, canvas.width, textHeight);
+                context.fillStyle = 'black';
+                context.font = `${textFontSize}px Arial`;
+                context.textAlign = 'center';
+                const textX = canvas.width / 2;
+                const textY = canvas.height - textHeight / (lines + 1);
+
+                const textArray = bottomText.value.split('\n');
+                textArray.forEach((line, index) => {
+                    context.fillText(line, textX, textY + (index * textFontSize));
+                });
+            }
+
+            // Add border if specified
+            const thickness = parseInt(borderThickness.value) || 0;
+            if (thickness > 0) {
+                context.strokeStyle = 'black';
+                context.lineWidth = thickness;
+                context.strokeRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Display the cropped image on the output canvas
+            outputCanvas.width = canvas.width;
+            outputCanvas.height = canvas.height;
+            const outputContext = outputCanvas.getContext('2d');
+            outputContext.drawImage(canvas, 0, 0);
+            outputCanvas.classList.remove('hidden');
+            isCropped = true;
+        });
+
+        // Print images
+        printImages.addEventListener('click', () => {
+            applyCrop.click();
+
+            if (!cropper) {
+                alert('Please upload and select an image first!');
+                return;
+            }
+
+            const numImages = parseInt(imagesPerPage.value) || 1;
+            const pageWidth = 2480; // A4 width in pixels at 300 DPI
+            const pageHeight = 3508; // A4 height in pixels at 300 DPI
+            const imageWidth = outputCanvas.width;
+            const imageHeight = outputCanvas.height;
+            const margin = 50; // Margin between images in pixels
+
+            const pageCanvas = document.createElement('canvas');
+            const pageContext = pageCanvas.getContext('2d');
+            pageCanvas.width = pageWidth;
+            pageCanvas.height = pageHeight;
+
+            let x = 0;
+            let y = 0;
+
+            for (let i = 0; i < numImages; i++) {
+                if (x + imageWidth > pageWidth) {
+                    x = 0;
+                    y += imageHeight + margin;
+                }
+
+                if (y + imageHeight > pageHeight) {
+                    alert('Not enough space on the page for all images. Adjust the number or size.');
+                    break;
+                }
+
+                pageContext.drawImage(outputCanvas, x, y, imageWidth, imageHeight);
+                x += imageWidth + margin;
+            }
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`<img src="${pageCanvas.toDataURL()}" style="width: 100%; height: auto;">`);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.print();
+            }, 200); // Add a delay of 1 second before triggering the print dialog
+        });
+
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        darkModeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+        });
+    </script>
+</body>
+</html>
